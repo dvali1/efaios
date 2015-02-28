@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Escape from Aliens in Outer Space</title>
+  <link rel="stylesheet" href="style.css">
+
+ <style type="text/css">
+       table { table-layout: fixed; }
+    </style>
+
+
+
+   <script>
+	var s = 31.45; //hexagon segment size   
+	var h = s/2;  
+	var r = s * 0.870025404; //maybe do it s/4 
+	
+	
+	var MAP_ORIGIN_X = 21;
+	var MAP_ORIGIN_Y = 3;
+	var MAP_ROWS = 14*2;
+	var MAP_COLS = 23;
+		
+	var statusText;
+	var canvas;
+	var c;
+		
+	var imgRes = {};
+
+var CWidth  = 0.5*2230;
+var CHeight = 0.5*1604;
+	
+	// Used when displaying unit properties
+	var locationInfo = {
+		x: 0,
+		y: 0,
+		row: 0,
+		col: 0,
+	};
+	
+	var img = new Array();
+	
+	
+	var mapImg = "gallilei.png";
+	var totalImgs = img.length + 1;
+	var curImgs = 0;
+	
+	function mapDataArray(rows, cols)
+	{
+		var a = new Array(rows);
+		for(i = 0; i < rows; i++)
+		{
+			a[i] = new Array(cols);
+		}
+		return a;
+	}
+	
+	mapData = new mapDataArray(MAP_ROWS, MAP_COLS);
+	mapData[1][2] = img[0]; 
+	mapData[1][3] = img[4];
+	mapData[1][4] = img[6];
+	mapData[2][1] = img[2];  
+	
+	mapData[4][12] = img[1]; 
+	mapData[4][13] = img[3];
+	mapData[4][14] = img[5];
+	mapData[4][11] = img[7];    
+	
+	function doneLoading()
+	{
+		curImgs++;
+		if (curImgs == totalImgs) 
+		{
+			//setInterval(render, 1000/30);
+			render();
+		}	
+	}
+	
+	function loadImage(file)
+	{
+		imgRes[file] = new Image();
+		imgRes[file].src = file;
+		imgRes[file].onload = function()
+		    {
+				doneLoading();
+			}
+	}
+	
+	
+	function drawInfoPanel(c, x, y, row, col, text)
+	{
+		c.beginPath();
+		c.lineWidth = 1;
+		c.strokeStyle = "black";
+		c.fillStyle = "grey";
+		c.rect(x + 5, y + 5, 400, 100);
+		c.fill();
+		c.stroke();
+		
+		c.font = "12pt Calibri";
+ 		c.fillStyle = "black";
+		c.textBaseline = "top";
+		c.fillText(text, x + 10, y + 10);
+		
+		if (imgRes[mapData[row][col]]) 
+		{
+			c.fillText("Unit: ", x + 10, y + 30);
+			c.drawImage(imgRes[mapData[row][col]], x + 10, y + 50);
+		}
+	}
+	
+	function drawHex(c, x0, y0, tColor, sColor, fColor, text, unit)
+	{
+	
+		c.strokeStyle = sColor;
+		c.beginPath();
+		c.moveTo(x0, y0);
+		c.lineTo(x0 + s, y0);
+		c.lineTo(x0 + s + h, y0 + r);
+		c.lineTo(x0 + s, y0 + 2 * r);
+		c.lineTo(x0, y0 + 2 *r);
+		c.lineTo(x0 - h, y0 + r);
+		
+		if (tColor)
+		{
+		    c.fillStyle = tColor;
+		    c.fill();
+		}
+		
+		if (imgRes[unit]) 
+		{
+			c.drawImage(imgRes[unit], x0, y0 + 20);
+		}
+		c.closePath();
+		c.stroke();
+
+		if (text)
+		{
+		    c.font = "10px sans-serif"
+		    c.fillStyle = fColor;
+		    c.fillText(text, x0 + h/2, y0 + 2 * r - 2);
+		}
+		
+		
+      }
+      
+      function drawHexGrid(c, x, y, rows, cols)
+      {
+		var posx;
+		var posy;
+		var n;
+		var coord;
+
+		for (row = 0; row < rows; row++) 
+		{
+			//we space the hexagons on each line next column being on the row below 
+			for (col = 0; col < cols/2; col++) 
+			{
+				posy =   y + row * r;
+				posx  = (row & 1 ) * (h + s) + x + 2 * col  * (s + h);
+				coord = "(" + col + "," + row + ")";
+				drawHex(c, posx , posy, null, "rgba(255,255,255,0.8)", "rgba(0,0,0,0.8)", coord, mapData[row][col]);
+			}
+		}
+	}
+	
+	function renderStart()
+	{
+		window.oncontextmenu = function() { return false; }
+	
+		statusText = document.getElementById('mousestatus');
+		canvas = document.getElementById('hex');
+		c = canvas.getContext('2d');
+
+		canvas.addEventListener("mousedown", 
+			function(e) 
+			{ 
+				var mx, my, tcol, vcol, trow, vrow,  posx, posy;
+				var rightclick;
+				
+				if (e.which) rightclick = (e.which == 3);
+				else if (e.button) rightclick = (e.button == 2);
+				
+				mx = e.clientX - canvas.offsetLeft + document.body.scrollLeft + document.documentElement.scrollLeft;
+				my = e.clientY - canvas.offsetTop + document.body.scrollTop + document.documentElement.scrollTop;;
+				//a graphical column in the grid not the array column
+				vcol = parseInt(mx / (s + h)); 
+				//real array column
+				tcol = parseInt(vcol/2);
+				// a graphical row not the array row
+				vrow = parseInt((my + r * (~vcol & 1)) / r); 
+			    
+				//shift to correct row index
+				if (vcol & 1)
+				{
+					trow = vrow - 1;
+				}
+				else
+				{
+					trow = vrow - 2;
+				}
+			    
+				//Add top offset (r) if graphical column is even substract if odd
+				posy =   MAP_ORIGIN_Y + r * (vcol & 1)  - r * (vcol & 1) + trow * r;
+				posx  = (trow & 1 ) * (h + s) + MAP_ORIGIN_X + 2 * tcol  * (s + h);
+			    
+				if ((vcol <= MAP_COLS) && (trow <= MAP_ROWS))
+				{
+					var text = "Mouse at: X:" + mx + " Y:" + my + " Hex is at: Col:" +  tcol + " Row:" + trow + " VCol:" + vcol + " VRow:" + vrow;
+					
+					render();
+					drawHex(c, posx, posy, "rgba(100,180,0,0.3)", "yellow", null, null);
+					if (rightclick)
+					{
+						drawInfoPanel(c, mx, my, trow, tcol, text);
+					}
+					
+					statusText.value = text;
+				}
+				else 
+				{
+					statusText.value = "Outside Map";
+				}
+			    
+			},
+			false);
+			
+		for(i = 0; i < img.length; i++)
+		{
+			loadImage(img[i]);
+		}	
+		loadImage(mapImg);
+	}
+	
+	function render()
+	{	
+		c.drawImage(imgRes[mapImg], 0 , 0, CWidth, CHeight);
+		drawHexGrid(c, MAP_ORIGIN_X, MAP_ORIGIN_Y, MAP_ROWS, MAP_COLS);
+		
+	}
+	
+      </script>  
+
+
+
+
+</head>
+<body>
+
+   <a class="pages">
+     <a class="login page">
+      <div class="form">
+        <h3 class="title">What's your nickname?</h3>
+        <input class="usernameInput" type="text" maxlength="14" />
+      </div>
+     </a>
+
+
+
+
+<a class="chat page">
+		<table>
+			<tr>
+				<th rowspan="5"><canvas id="hex" width=1115 height=802>
+  	 				HexGrid. Get a html5 capable browser !
+   	 							</canvas>
+				</th>
+	
+
+       				<td valign="top" width=40%>
+					<div class="messages" style="max-height:220px;overflow:auto;"></div>	
+										
+				</td>
+
+			</tr>
+			<tr>
+				<td valign="top" height=5%><input class="inputMessage" placeholder="Type here..."/></td>
+			</tr>
+
+			<tr>
+				<td valign="top" height=40%><b>System messages: </b><div class="sysmsg" style="max-height:220px;overflow:auto;"></div></td>
+			</tr>
+
+			<tr>
+				<td valign="top" height=10%><b>Connected users: </b><a id="connusers"></a></td>
+			</tr>
+
+			<tr>
+				<td valign="top" height=5%>	
+				<input type="button" value="Ready" class="ready" id="ready1"></input>
+				<input type="button" value="Start the Madness!" class="start" id="start1"></input>
+				</td>
+			</tr>
+			
+		</table>
+</a>
+
+    
+
+
+
+    
+
+  <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/main.js"></script>
+</body>
+</html>
